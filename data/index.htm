@@ -1,131 +1,150 @@
-<!--
-  FSWebServer - Example Index Page
-  Copyright (c) 2015 Hristo Gochkov. All rights reserved.
-  This file is part of the ESP8266WebServer library for Arduino environment.
-
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
--->
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta http-equiv="Content-type" content="text/html; charset=utf-8">
-    <title>WebSocketTester</title>
-    <style type="text/css" media="screen">
-    body {
-      margin:0;
-      padding:0;
-      background-color: black;
-    }
+<head>
+  <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no"/>
+  <title>Allarme - Tolentino Cotesta</title>
+  <link rel="stylesheet" href="bootstrap.css" type="text/css" />
+  <link rel="stylesheet" href="style.css" type="text/css" />
+  <link rel="stylesheet" href="pinstyle.css" type="text/css" />
 
-    #dbg, #input_div, #input_el {
-      font-family: monaco;
-      font-size: 12px;
-      line-height: 13px;
-      color: #AAA;
-    }
+  <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+  <script src="https://code.jquery.com/jquery-2.2.4.min.js" type="application/javascript"></script>
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" type="application/javascript"></script>
+</head>
 
-    #dbg, #input_div {
-      margin:0;
-      padding:0;
-      padding-left:4px;
-    }
-
-    #input_el {
-      width:98%;
-      background-color: rgba(0,0,0,0);
-      border: 0px;
-    }
-    #input_el:focus {
-      outline: none;
-    }
-    </style>
-    <script type="text/javascript">
-    var ws = null;
-    function ge(s){ return document.getElementById(s);}
-    function ce(s){ return document.createElement(s);}
-    function stb(){ window.scrollTo(0, document.body.scrollHeight || document.documentElement.scrollHeight); }
-    function sendBlob(str){
-      var buf = new Uint8Array(str.length);
-      for (var i = 0; i < str.length; ++i) buf[i] = str.charCodeAt(i);
-      ws.send(buf);
-    }
-    function addMessage(m){
-      var msg = ce("div");
-      msg.innerText = m;
-      ge("dbg").appendChild(msg);
-      stb();
-    }
-    function startSocket(){
-      ws = new WebSocket('ws://'+document.location.host+'/ws',['arduino']);
-      ws.binaryType = "arraybuffer";
-      ws.onopen = function(e){
-        addMessage("Connected");
-      };
-      ws.onclose = function(e){
-        addMessage("Disconnected");
-      };
-      ws.onerror = function(e){
-        console.log("ws error", e);
-        addMessage("Error");
-      };
-      ws.onmessage = function(e){
-        var msg = "";
-        if(e.data instanceof ArrayBuffer){
-          msg = "BIN:";
-          var bytes = new Uint8Array(e.data);
-          for (var i = 0; i < bytes.length; i++) {
-            msg += String.fromCharCode(bytes[i]);
-          }
-        } else {
-          msg = "TXT:"+e.data;
-        }
-        addMessage(msg);
-      };
-      ge("input_el").onkeydown = function(e){
-        stb();
-        if(e.keyCode == 13 && ge("input_el").value != ""){
-          ws.send(ge("input_el").value);
-          ge("input_el").value = "";
-        }
-      }
-    }
-    function startEvents(){
-      var es = new EventSource('/events');
-      es.onopen = function(e) {
-        addMessage("Events Opened");
-      };
-      es.onerror = function(e) {
-        if (e.target.readyState != EventSource.OPEN) {
-          addMessage("Events Closed");
-        }
-      };
-      es.onmessage = function(e) {
-        addMessage("Event: " + e.data);
-      };
-      es.addEventListener('ota', function(e) {
-        addMessage("Event[ota]: " + e.data);
-      }, false);
-    }
-    function onBodyLoad(){
-      startSocket();
-      startEvents();
-    }
-    </script>
-  </head>
-  <body id="body" onload="onBodyLoad()">
-    <pre id="dbg"></pre>
-    <div id="input_div">
-      $<input type="text" value="" id="input_el">
+<body id="body">
+  <main>
+    <!-- The Modal -->
+    <div id="myModal" class="modal">
+      <!-- Modal content -->
+      <div id="pin" class="modal-content">
+        <span class="close" style="align-self: right">&times;</span>
+        <div class="dots">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+        </div>
+        <p>Inserisci il PIN</p>
+        <div class="numbers">
+          <div class="number">1</div>
+          <div class="number">2</div>
+          <div class="number">3</div>
+          <div class="number">4</div>
+          <div class="number">5</div>
+          <div class="number">6</div>
+          <div class="number">7</div>
+          <div class="number">8</div>
+          <div class="number">9</div>
+          <div class="number">-</div>
+          <div class="number">0</div>
+          <div class="number">-</div>
+        </div>
+      </div>
     </div>
-  </body>
+
+    <div class="header clearfix">
+      <div id="meteo">
+        <legend id="serverDate">Smart Alarm v1.0        00:00:00<br></legend>
+      </div>
+    </div>
+    
+    <div class="row-4 col-12 cell">      
+        <div id="meteo-iframe" style="margin-top: -20px;" >
+          <!-- Inizio codice ilMeteo.it -->
+          <iframe width="460" height="300" scrolling="no" frameborder="no" noresize="noresize" src="http://www.ilmeteo.it/box/previsioni.php?citta=5913&type=day1&width=460&ico=1&lang=ita&days=6&font=Arial&fontsize=12&bg=FFFFFF&fg=000000&bgtitle=0099FF&fgtitle=FFFFFF&bgtab=F0F0F0&fglink=1773C2"></iframe>
+          <!-- Fine codice ilMeteo.it -->
+        </div>
+    </div>
+    
+    <div class="row-5 col-12 cell" >
+          <div id="calendar-iframe">
+            <!-- Inizio codice calendario -->
+            <iframe src="https://calendar.google.com/calendar/embed?showTitle=0&amp;showPrint=0&amp;showCalendars=0&amp;height=350&amp;wkst=2&amp;bgcolor=%23e0e0e0&amp;src=tolentino.cotesta%40gmail.com&amp;color=%232952A3&amp;ctz=Europe%2FRome" style="border-width:0" width="460" height="350" frameborder="0" scrolling="no"></iframe>
+            <!-- Fine codice calendario -->
+          </div>
+    </div>
+    
+    <div class="row-2 col-12 cell">
+      <div id="normal" style="display: block;margin-top: 10px;">
+        <label style="padding:0; font-size:18px">Gestione Allarme</label>
+        <table id="normalBox">
+          <tr>
+            <td>
+              <div class="buttons">
+                <button class="btn btn-primary" id="butAlarmOn" onclick="onBodyLoad()">Attiva</button>
+              </div>
+            </td>
+            <td>
+              <div class="buttons">
+                <button class="btn btn-primary" id="butTimer">Timer</button>
+              </div>
+            </td>
+            <td>
+              <div class="buttons">
+                <button class="btn btn-primary" id="butAlarmOff" disabled="true">Disattiva</button>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </div>
+      
+      <div id="alarmBox">
+        <div id="progressbar">
+          <div id="bar"></div>
+          <div id="labelProg">Sirena</div>
+        </div>
+        <div id="btnSilence">
+          <button class="btn btn-success" id="butAlarmReset" disabled="true">Tacita</button>
+        </div>
+      </div>
+      
+    </div>
+    
+    <div class="row-1 col-12 cell" >
+       <div class="gpio">
+          <div class="led-box">
+            <div id="ALARM_ON" class="led-orange-on"></div>
+            <p>Allarme</p>
+          </div>
+          <div class="led-box">
+            <div id="REED_IN" class="led-green-off"></div>
+            <p>Ingresso</p>
+          </div>
+          <div class="led-box">
+            <div id="HORN_ON" class="led-red-off"></div>
+            <p>Sirena (NC)</p>
+          </div>
+          <div class="led-box">
+            <div id="TEST" class="led-red-off" onclick="toggle(this)"></div>
+            <p>TEST</p>
+          </div>
+        </div>
+    </div>
+    
+    
+    <div class="row-1 col-12 cell">
+      <button class="sensors" id="sensor-1" onclick="longPressEvent(this)" >3.60V</button>
+      <button class="sensors" id="sensor-2" onclick="longPressEvent(this)" >3.60V</button>
+      <button class="sensors" id="sensor-3" onclick="longPressEvent(this)" >3.60V</button>
+      <button class="sensors" id="sensor-4" onclick="longPressEvent(this)" >3.60V</button>
+      <button class="sensors" id="sensor-5" onclick="longPressEvent(this)" >3.60V</button>
+      <button class="sensors" id="sensor-6" onclick="longPressEvent(this)" >3.60V</button>
+    </div>  
+    
+    
+    <div id="dialog-confirm" title="Gestione Allarme" style="display:none">
+      <p><b>DISATTIVA</b><br>Per reinserire il sistema sarà necessario premere il pulsante ATTIVA</p>
+      <p><b>RIATTIVA</b><br>L'allarme sarà riattivato trascorso il tempo definito dall'utente</p>
+      <p><b>ATTIVA TIMER</b><br>L'allarme sarà attivato nuovamente secondo la programamzione giornaliera impostata</p>
+    </div>
+    
+	  
+  </main>
+  <script src="functions.js"></script>
+  <script src="sha256.js"></script>
+
+</body>
 </html>

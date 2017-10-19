@@ -1,0 +1,232 @@
+html,
+body {
+  line-height: 24px;
+  overflow: hidden;
+  width:480px;
+  height:800px;
+}
+
+main {
+  background: #E0E0E0;
+  width: 100%;
+  min-height: 100%;
+  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  
+}
+
+legend {
+  display: block;
+  width: 100%;
+  padding: 0;
+  margin-bottom: 5px;
+  font-size: 18px;
+  line-height: inherit;
+  color: #333;
+  border: 0;
+  border-bottom-width: 0px;
+  border-bottom-style: none;
+  border-bottom-color: currentcolor;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+label { color: #666; }
+label:hover { color: #000; }
+h2 { text-align: center; }
+p { font-size: 13px; }
+section { padding: 0 0 0 16px; text-align: left; }
+th { background-color: #CCCCCC; }
+
+table {
+  width: 100%;
+  height: 100%;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+hr {
+  background-color: #E0E0E0;
+  border: 0 none;
+  color: #E0E0E0;
+  height: 1px;
+}
+
+.cell { background: #E0E0E0; }
+
+[class*="col-"] {float: left;}
+.col-1 	{width: 8.333333%;}
+.col-2 	{width: 16.666666%;}
+.col-3 	{width: 25%;}
+.col-4 	{width: 33.333333%;}
+.col-5 	{width: 41.666666%;}
+.col-6 	{width: 50%;}
+.col-7 	{width: 58.333333%;}
+.col-8 	{width: 66.666666%;}
+.col-9 	{width: 75%;}
+.col-10 {width: 83.333333%;}
+.col-11 {width: 91.666666%;}
+.col-12 {width: 100%;}
+
+.row-1 	{height: 60px;}
+.row-2 	{height: 100px;}
+.row-3 	{height: 23%;}
+.row-4 	{height: 240px;}
+.row-5 	{height: 320px;}
+.row-6 	{height: 50%;}
+.row-7 	{height: 58.333333%;}
+.row-8 	{height: 66.666666%;}
+.row-9 	{height: 75%;}
+.row-10 {height: 83.333333%;}
+.row-11 {height: 91.666666%;}
+.row-12 {height: 100%;}
+
+.sensors{
+  background: #99cc00;
+  margin: 5px;
+  display: inline-flex;
+  padding: 2px 10px 2px 10px;
+  border-radius: 5px;
+  border: 0;
+  box-shadow:none;
+}
+
+#alarmBox {
+  display: none;
+  border: 5px solid #000000;
+  font-weight: bold;
+  animation: blink .5s step-end infinite alternate;
+  margin: 20px 5px 20px 5px;
+  padding: 10px;
+}
+
+#progressbar{
+  width: 100%;
+  height: 35px;
+  border-radius: 3px;
+  border: 1px solid #ccc;
+  background: #eee;
+  position: relative;
+  margin-right: 10px;
+  z-index: 0;
+}
+#bar{background:#2bbed8;width:1%;height:33px;position:absolute;z-index:-1}
+#labelProg{text-align:center;line-height:2.3;color:#000;}
+
+@keyframes blink {
+  50% {
+    border-color: #ff0000;
+  }
+}
+
+button:disabled, button[disabled] {
+  border: 1px solid #999999;
+  background-color: #cccccc;
+  color: #666666;
+}
+
+
+.btn-primary {  
+  min-width: 130px; 
+  min-height: 50px; 
+  text-transform: uppercase;
+}
+
+@media screen and (min-width: 32em) {
+  .btn--full {
+    max-width: 16em !important;
+  }
+}
+
+#container {
+  padding: 20px;
+}
+
+#calendar {
+  margin: -31px 0 20px 0;
+  position: relative;
+  background-color: #E0E0E0;
+  height: 30px;
+}
+
+#meteo {
+  position: sticky;
+  background-color: #E0E0E0;
+  height: 35px;
+}
+
+.gpio {
+    display: inline-block;
+    padding: 10px 0px 0px 0px;
+    color: #a7a7a7;
+    line-height: 0px
+}
+
+
+.led-box {
+  height: 30px;
+  float: left;
+}
+
+.led-box p {
+  font-size: 12px;
+  text-align: center;
+  margin: 1em;
+}
+
+.led-red-off {
+  margin: 0 auto;
+  width: 20px;
+  height: 20px;
+  background-color: #F00;
+  background-color: rgba(255, 10, 5, 1);
+  border-radius: 50%;
+  box-shadow: rgba(0, 0, 0, 0.2) 0 0 2px 2px, inset #441313 0 0 2px, rgba(255, 0, 0, 0.5) 0 2px 12px;
+}
+
+.led-red-on {
+  margin: 0 auto;
+  width: 20px;
+  height: 20px;
+  background-color: #F00;
+  background-color: rgba(255, 10, 5, 0.2);
+  border-radius: 50%;
+  box-shadow: rgba(0, 0, 0, 0.2) 0 0 2px 2px, inset #441313 0 0 2px, rgba(255, 0, 0, 0.5) 0 2px 12px;
+}
+
+.led-green-off {
+  margin: 0 auto;
+  width: 20px;
+  height: 20px;
+  background-color: rgba(204, 255, 51, 1);
+  border-radius: 50%;
+  box-shadow: rgba(0, 0, 0, 0.2) 0 0 2px 2px, inset #304701 0 0 2px, #89FF00 0 2px 12px;
+}
+
+.led-green-on {
+  margin: 0 auto;
+  width: 20px;
+  height: 20px;
+  background-color: rgba(204, 255, 51, 0.2);
+  border-radius: 50%;
+  box-shadow: rgba(0, 0, 0, 0.2) 0 0 2px 2px, inset #304701 0 0 2px, #89FF00 0 2px 12px;
+}
+
+/* Orange LED is ON when state is LOW */
+.led-orange-on {
+  margin: 0 auto;
+  width: 20px;
+  height: 20px;
+  background-color: rgba(204, 255, 51, 1);
+  border-radius: 50%;
+  box-shadow: rgba(0, 0, 0, 0.2) 0 0 2px 2px, inset #304701 0 0 2px, #89FF00 0 2px 12px;
+}
+
+.led-orange-off {
+  margin: 0 auto;
+  width: 20px;
+  height: 20px;
+  background-color: rgba(255, 209, 51, 0.2);
+  border-radius: 50%;
+  box-shadow: rgba(0, 0, 0, 0.2) 0 0 2px 2px, inset #867708 0 0 2px, #FFB400 0 2px 12px;
+}
+

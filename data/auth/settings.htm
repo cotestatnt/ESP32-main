@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="">
+  <meta name="author" content="">
+  <link rel="icon" href="/favicon.ico">
+  <title>ESP RFID Websocket Demo</title>
+  <!-- Bootstrap core CSS -->
+  <link href="/bootstrap.css" rel="stylesheet">
+  <script src="/auth/tools.js" type="text/javascript" charset="utf-8"></script>
+</head>
+
+<body onload="javascript:start();">
+  <div class="container">
+    <div class="header clearfix">
+      <h3 class="text-muted">Settings</h3>
+    </div>
+    <div class="jumbotron">
+      <div class="alert alert-warning"> <strong>Warning!</strong> Saving settings will cause your ESP to reboot. </div>
+      <div class="row">
+        <div class="col-sm-6 col-sm-push-6">
+          <fieldset>
+            <legend>Wi-Fi Client Settings</legend>
+            <div class="row form-group">
+              <label class="col-xs-3">SSID</label>
+              <span class="col-xs-9">
+                <input class="form-control input-sm" style="display:inline;max-width:150px" id="ssid" type="text">
+              </span>
+            </div>
+            <div class="row form-group">
+              <label class="col-xs-3">Password</label>
+              <span class="col-xs-9">
+                <input id="wifipass" style="max-width:150px" class="form-control input-sm" type="password" name="ap_passwd">
+              </span>
+            </div>
+            <div class="row form-group">
+              <label class="col-xs-3">DHCP</label>
+              <span class="col-xs-9">
+                <input id="wifiSetup" type="checkbox" name="vehicle1" value="DHCP" onclick="staticWifi();"> Set Wifi config<br>
+              </span>
+            </div>
+
+            <div class="row form-group">
+              <label class="col-xs-3">Indirizzo IP</label>
+              <span class="col-xs-9">
+                <input id="ipAddress" style="max-width:150px" class="form-control input-sm" type="text" disabled="disabled">
+              </span>
+            </div>
+            <div class="row form-group">
+              <label class="col-xs-3">Gateway</label>
+              <span class="col-xs-9">
+                <input id="gateway" style="max-width:150px" class="form-control input-sm" type="text" disabled="disabled">
+              </span>
+            </div>
+            <div class="row form-group">
+              <label class="col-xs-3">Submask</label>
+              <span class="col-xs-9">
+                <input id="subnetmask" style="max-width:150px" class="form-control input-sm" type="text" disabled="disabled">
+              </span>
+            </div>
+
+          </fieldset>
+          <br>
+        </div>
+        <div class="col-sm-6 col-sm-pull-6">
+          <fieldset>
+            <legend>Wireless sensors</legend>
+            <div class="row form-group">
+              <label class="col-xs-3">Number</label>
+              <span class="col-xs-9">
+                 <select class="form-control input-sm" style="max-width:185px" id="nodeNumber">
+                    <option selected="selected" value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                 </select>
+              </span>
+            </div>
+            <div class="row form-group">
+              <label class="col-xs-3">Status</label>
+              <span class="col-xs-9">
+                 <select class="form-control input-sm" style="max-width:185px" id="gpioStatus">
+                    <option value="0">GPIO-0</option>
+                    <option value="2">GPIO-2</option>
+                    <option value="4">GPIO-4</option>
+                    <option value="5">GPIO-5</option>
+                    <option value="15">GPIO-15</option>
+                    <option selected="selected" value="16">GPIO-16</option>
+                 </select>
+              </span>
+            </div>
+            <legend>Admin</legend>
+            <div class="row form-group">
+              <label class="col-xs-3">Password</label>
+              <span class="col-xs-9">
+                <input id="adminPswd" style="max-width:150px" class="form-control input-sm" type="password">
+              </span>
+            </div>
+            <div class="row form-group">
+              <label class="col-xs-3">PIN</label>
+              <span class="col-xs-9">
+                <input id="pin" style="max-width:150px" class="form-control input-sm" type="password">
+              </span>
+            </div>
+            <div class="row form-group">
+              <span class="col-xs-9">
+                <div><button onclick="saveAdmin()" class="btn btn-success btn-md pull-right">Save Admin & Reboot</button></div>
+              </span>
+            </div>
+            <br>
+            <legend>Set Timer</legend>
+            <div class="row form-group">
+              <label class="col-xs-5">Enable at time</label>
+              <span class="col-xs-7">
+                <input id="startTime" style="max-width:100px" class="form-control input-sm" type="time" >
+              </span>
+            </div>
+            <div class="row form-group">
+              <label class="col-xs-5">Disable at time</label>
+              <span class="col-xs-7">
+                <input id="stopTime" style="max-width:100px" class="form-control input-sm" type="time" >
+              </span>
+            </div>
+            <div class="row form-group">
+              <label class="col-xs-5">Pause duration (seconds)</label>
+              <span class="col-xs-7">
+                <input id="pauseTime"  min="10" max="600" step="5" value="30" style="max-width:100px" class="form-control input-sm" type="number" >
+              </span>
+            </div>
+            <div class="row form-group">
+              <label class="col-xs-5">Horn wait time (seconds)</label>
+              <span class="col-xs-7">
+                <input id="hornTime"  min="5" max="60" step="5" value="15" style="max-width:100px" class="form-control input-sm" type="number" >
+              </span>
+            </div>
+
+          </fieldset>
+        </div>
+      </div>
+      <div><button onclick="saveConf()" class="btn btn-success btn-md pull-right">Save WiFi & Reboot</button></div>
+      <br>
+    </div>
+
+
+    <hr>
+    <footer>
+      <p>Tolentino Cotesta &copy; 2017 cotestatnt@yahoo.com</p>
+    </footer>
+  </div>
+</body>
+
+</html>
