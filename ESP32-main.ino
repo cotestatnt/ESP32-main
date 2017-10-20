@@ -3,6 +3,7 @@
 #include <SPI.h>
 #include <Crypto.h>
 #include <Speck.h>
+//#include <SpeckSmall.h>
 #include <SHA256.h>
 #include <FS.h>
 #include <SPIFFS.h>
@@ -24,8 +25,7 @@ String adminPIN = "12345";
 #define CLEAR_BIT(value,bit)      ((value) &= ~BIT_MASK(bit))
 #define TEST_BIT(value,bit)       (((value) & BIT_MASK(bit)) ? 1 : 0)
 
-#define TIMECHECK		10000
-#define HOSTNAME		"ESP-"                
+#define TIMECHECK		15					  // In seconds
 #define NTP_OFFSET		2*60*60               // In seconds
 #define NTP_ADDRESS		"time.google.com"     // NTP Server to connect
 #define N_BLOCK			17
@@ -55,8 +55,9 @@ Preferences preferences;
 
 // Instantiate a Speck block ciphering and SHA256
 Speck myCipher;
-byte encryptKey[N_BLOCK] = "gg8y2h>gTd7]0qU";
-byte plainText[N_BLOCK] = "0123456789ABCDEF";
+byte encryptKey[N_BLOCK] = { 0x5C, 0x39, 0x38, 0x7B, 0x36, 0x60, 0x68, 0x23, 
+							 0x34, 0x34, 0x76, 0x5C, 0x34, 0x22, 0x62, 0x55 };
+byte plainText[N_BLOCK];
 byte cipherText[N_BLOCK];
 SHA256 sha256;
 
@@ -111,11 +112,16 @@ void setup() {
 	systemStatus = static_cast<States>(preferences.getUInt("systemStatus", systemStatus));
 	preferences.end();
 
-	// Init nRF24 Manager (Defaults after init are 2.402 GHz (channel 2), 2Mbps, 0dBm)
+	// Change nRF24 default DataRate and Transmit power
+	//if (!nrf24.setRF(RH_NRF24::DataRate250kbps, RH_NRF24::TransmitPower0dBm))
+	//	Serial.println(F("nRF24 setRF failed"));
+
+	// Init nRF24 Manager 
 	if (!manager.init())
-		Serial.println("init failed");
+		Serial.println(F("nRF24 init failed"));
 	else
-		Serial.println("init OK");
+		Serial.println(F("nRF24 init OK"));
+
 
 	// Init SPECK cipher
 	myCipher.setKey(encryptKey, sizeof(encryptKey));
@@ -158,7 +164,16 @@ void setup() {
 	server.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request) { request->send(200, "text/plain", String(ESP.getFreeHeap())); });
 	server.onNotFound([](AsyncWebServerRequest *request) { request->send(404); });	
 	server.begin();
+	
+	epochTime = timeClient.getEpochTime();
+	actual_time_sec = hours(epochTime) * 3600 + minutes(epochTime) * 60 + seconds(epochTime);
 
+	// Set all node to known state
+	for (byte i = 0; i<7; i++) {
+		nodes[i].id = 0;
+		nodes[i].state = 0;
+		nodes[i].lastTS = actual_time_sec;
+	}
 }
 
 
@@ -235,11 +250,11 @@ void loop() {
 		systemStatus = RUNNING;
 		nodesOK = 0;
 		for (byte i = 0; i<7; i++) {
-			long elapsedtime = millis() - nodes[i].lastTS;
+			long elapsedtime = actual_time_sec - nodes[i].lastTS;
 			if (elapsedtime > TIMECHECK) {
 				// if sensor is disabled dont't set alarm
 				if (nodes[i].state != 0)
-					Serial.printf("Sensor %u not respond since %ums\n", nodes[i].id, elapsedtime);
+					Serial.printf("Sensor %u not respond since %u seconds\n", nodes[i].id, elapsedtime);
 				delay(100);
 			}
 			else
@@ -257,9 +272,7 @@ void loop() {
 
 	// Only to store the actual status and use it after if restart
 	case TIMED:
-		//timeClient.update();
-		epochTime = timeClient.getEpochTime();
-		actual_time_sec = hours(epochTime) * 3600 + minutes(epochTime) * 60 + seconds(epochTime);
+		//timeClient.update();		
 		if (actual_time_sec == start_seconds) {
 			// Update nodes timestamp before re-enable the system
 			for (byte i = 0; i<7; i++)
@@ -304,6 +317,8 @@ void loop() {
 		char str[2];
 		sprintf(str, "%d", systemStatus);
 		sendDataWs((char *)"status", str);
+		epochTime = timeClient.getEpochTime();
+		actual_time_sec = hours(epochTime) * 3600 + minutes(epochTime) * 60 + seconds(epochTime);
 	}
 
 	// Read status of all used pins and store in NewGPIO var
@@ -335,7 +350,7 @@ bool checkAlive(void) {
 	if (RxData.indexOf("ALIVE") > 0) {
 		uint8_t fromNode = RxData.substring(0, 2).toInt();
 		if (!service)
-			sprintf((char *)plainText, "%02u000%010u", fromNode, millis());
+			sprintf((char *)plainText, "%02u000%010u", fromNode, actual_time_sec);
 		else {
 			service = false;
 			sprintf((char *)plainText, "%s", servMsg.c_str());
