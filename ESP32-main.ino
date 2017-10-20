@@ -3,7 +3,6 @@
 #include <SPI.h>
 #include <Crypto.h>
 #include <Speck.h>
-//#include <SpeckSmall.h>
 #include <SHA256.h>
 #include <FS.h>
 #include <SPIFFS.h>
@@ -25,7 +24,7 @@ String adminPIN = "12345";
 #define CLEAR_BIT(value,bit)      ((value) &= ~BIT_MASK(bit))
 #define TEST_BIT(value,bit)       (((value) & BIT_MASK(bit)) ? 1 : 0)
 
-#define TIMECHECK		15					  // In seconds
+#define TIMECHECK		20					  // In seconds
 #define NTP_OFFSET		2*60*60               // In seconds
 #define NTP_ADDRESS		"time.google.com"     // NTP Server to connect
 #define N_BLOCK			17
@@ -112,15 +111,17 @@ void setup() {
 	systemStatus = static_cast<States>(preferences.getUInt("systemStatus", systemStatus));
 	preferences.end();
 
-	// Change nRF24 default DataRate and Transmit power
-	//if (!nrf24.setRF(RH_NRF24::DataRate250kbps, RH_NRF24::TransmitPower0dBm))
-	//	Serial.println(F("nRF24 setRF failed"));
-
 	// Init nRF24 Manager 
 	if (!manager.init())
 		Serial.println(F("nRF24 init failed"));
 	else
 		Serial.println(F("nRF24 init OK"));
+	manager.setRetries(5);
+	manager.setTimeout(50);
+
+	// Change nRF24 default DataRate and Transmit power
+	if (!nrf24.setRF(RH_NRF24::DataRate250kbps, RH_NRF24::TransmitPower0dBm))
+		Serial.println(F("nRF24 setRF failed"));
 
 
 	// Init SPECK cipher
@@ -239,8 +240,7 @@ void loop() {
 			nodes[actualId].state = state;
 			nodes[actualId].battery = battery;
 			nodes[actualId].lastTS = timestamp;
-			RxData = "";
-			Serial.println();
+			RxData = "";			
 			systemStatus = CHECK_NODES;
 		}
 		break;
@@ -253,9 +253,10 @@ void loop() {
 			long elapsedtime = actual_time_sec - nodes[i].lastTS;
 			if (elapsedtime > TIMECHECK) {
 				// if sensor is disabled dont't set alarm
-				if (nodes[i].state != 0)
+				if (nodes[i].state != 0) {
 					Serial.printf("Sensor %u not respond since %u seconds\n", nodes[i].id, elapsedtime);
-				delay(100);
+					delay(1000);
+				}
 			}
 			else
 				nodesOK++;
@@ -355,7 +356,7 @@ bool checkAlive(void) {
 			service = false;
 			sprintf((char *)plainText, "%s", servMsg.c_str());
 		}
-		Serial.printf("Send: %s", (char *)plainText);
+		Serial.printf("Master: %s", (char *)plainText);
 		delay(5);		
 		sendRadioData(fromNode);
 		RxData = "";
@@ -381,8 +382,7 @@ void getRadioData(void) {
 		uint8_t fromNode;
 		if (manager.recvfromAck(cipherText, &len, &fromNode)) {
 			myCipher.decryptBlock(plainText, cipherText);
-			RxData = String((char *)plainText);
-			//sendDataWs("log", RxData);
+			RxData = String((char *)plainText);			
 			Serial.printf("\nNode %u: %s; ", fromNode, RxData.c_str());
 		}
 	}
@@ -529,8 +529,8 @@ void processWsMsg(String msg) {
 		preferences.end();
 
 		// Wait 5 seconds and restart ESP
-		Serial.println("Restarting in 10 seconds...");
-		delay(10000);	
+		Serial.println("Restarting in 5 seconds...");
+		delay(5000);	
 		ESP.restart();
 	}
 
@@ -589,10 +589,8 @@ bool loadWifiConf(void) {
 	configFile.readBytes(buf.get(), size);
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& json = jsonBuffer.parseObject(buf.get());
-
 	if (!json.success()) 
-		return false;
-	
+		return false;	
 
 	// Parse json config file
 	nodeNumber = json["nodeNumber"];
@@ -602,7 +600,6 @@ bool loadWifiConf(void) {
 	start_seconds = startTime.substring(1, 3).toInt() * 3600 + startTime.substring(4, 6).toInt() * 60;
 	stop_seconds = stopTime.substring(1, 3).toInt() * 3600 + stopTime.substring(4, 6).toInt() * 60;
 	pauseSeconds = json["pauseTime"];
-
 	ssid = json["ssid"];
 	password = json["pswd"];
 	bool dhcp = json["dhcp"];
