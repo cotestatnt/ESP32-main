@@ -37,8 +37,6 @@ const byte HORN_ON = 12;		// Relay K2
 const byte REED_IN = 2;			// Reed sensor input (Pull-UP)
 const byte UsedPin[] = { REED_IN , HORN_ON, ALARM_ON, TEST };
 
-//const byte A6RX = D3;
-//const byte A6TX = D2;
 
 // Webservices
 AsyncWebServer server(80);
@@ -103,6 +101,9 @@ void setup() {
 	// Start Serial for debug
 	Serial.begin(115200);
 	Serial.println();
+	// Start Serial for A6 GSM module
+	//A6GSM.begin(115200);
+
 
 	// Load admin credits. If not present (first time?) use default admin/admin
 	preferences.begin("SmartAlarm", false);
@@ -250,7 +251,9 @@ void loop() {
 	case CHECK_NODES:
 		systemStatus = RUNNING;
 		nodesOK = 0;
-		for (byte i = 0; i<7; i++) {
+		epochTime = timeClient.getEpochTime();
+		actual_time_sec = hours(epochTime) * 3600 + minutes(epochTime) * 60 + seconds(epochTime);
+		for (byte i = 0; i<7; i++) {			
 			long elapsedtime = actual_time_sec - nodes[i].lastTS;
 			if (elapsedtime > TIMECHECK) {
 				// if sensor is disabled dont't set alarm
