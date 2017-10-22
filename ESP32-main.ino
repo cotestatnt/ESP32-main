@@ -34,7 +34,7 @@ enum States { SYS_DISABLED = 0, SYS_ENABLED = 10, RUNNING = 11, WAIT_NODE = 12, 
 const byte TEST = 14;			// Relay K1
 const byte ALARM_ON = 13;		// Led D5
 const byte HORN_ON = 12;		// Relay K2
-const byte REED_IN = 5;			// Reed sensor input (Pull-UP)
+const byte REED_IN = 2;			// Reed sensor input (Pull-UP)
 const byte UsedPin[] = { REED_IN , HORN_ON, ALARM_ON, TEST };
 
 //const byte A6RX = D3;
@@ -61,7 +61,7 @@ byte cipherText[N_BLOCK];
 SHA256 sha256;
 
 // Singleton instance of the radio driver
-RH_NRF24 nrf24(16, 17);
+RH_NRF24 nrf24(27, 5);
 RHReliableDatagram manager(nrf24, SERVER_ADDRESS);
 struct Node { uint16_t id; uint8_t state; uint8_t battery; long lastTS; };
 Node nodes[7]; // Master always 0 + n nodes
@@ -116,8 +116,8 @@ void setup() {
 		Serial.println(F("nRF24 init failed"));
 	else
 		Serial.println(F("nRF24 init OK"));
-	manager.setRetries(5);
-	manager.setTimeout(50);
+	manager.setRetries(15);
+	manager.setTimeout(30);
 
 	// Change nRF24 default DataRate and Transmit power
 	if (!nrf24.setRF(RH_NRF24::DataRate250kbps, RH_NRF24::TransmitPower0dBm))
@@ -227,9 +227,10 @@ void loop() {
 
 	// Get the timestamped reply message from the specific node
 	case WAIT_NODE:
-		if (millis() - waitTime > 500) {
+		// Timeoout -> something get wrong
+		if (millis() - waitTime > 700) {
 			waitTime = millis();
-			systemStatus = SYS_ENABLED;
+			systemStatus = CHECK_NODES;
 		}
 		if (RxData.substring(0, 1) == "9") {
 			uint16_t actualId = RxData.substring(1, 2).toInt();
@@ -254,7 +255,8 @@ void loop() {
 			if (elapsedtime > TIMECHECK) {
 				// if sensor is disabled dont't set alarm
 				if (nodes[i].state != 0) {
-					Serial.printf("Sensor %u not respond since %u seconds\n", nodes[i].id, elapsedtime);
+					Serial.printf("\nSensor %u not respond since %u seconds\n", nodes[i].id, elapsedtime);
+					systemStatus = ALARMED;
 					delay(1000);
 				}
 			}
@@ -265,7 +267,7 @@ void loop() {
 		if (nodesOK < nodeNumber) {
 			systemStatus = ALARMED;
 			digitalWrite(ALARM_ON, LOW);
-			Serial.printf("ALARM! Sensors active %u/%u\n", nodesOK, nodeNumber);
+			Serial.printf("\nALARM! Sensors active %u/%u\n", nodesOK, nodeNumber);
 			delay(200);
 			hornTime = millis();
 		}
