@@ -24,7 +24,7 @@ String adminPIN = "12345";
 #define CLEAR_BIT(value,bit)      ((value) &= ~BIT_MASK(bit))
 #define TEST_BIT(value,bit)       (((value) & BIT_MASK(bit)) ? 1 : 0)
 
-#define TIMECHECK		20					  // In seconds
+#define TIMECHECK		40					  // In seconds
 #define NTP_OFFSET		2*60*60               // In seconds
 #define NTP_ADDRESS		"time.google.com"     // NTP Server to connect
 #define N_BLOCK			17
@@ -113,8 +113,8 @@ void setup() {
 		Serial.println(F("nRF24 init failed"));
 	else
 		Serial.println(F("nRF24 init OK"));
-	manager.setRetries(15);
-	manager.setTimeout(30);
+	manager.setRetries(5);
+	manager.setTimeout(50);
 
 	// Change nRF24 default DataRate and Transmit power
 	if (!nrf24.setRF(RH_NRF24::DataRate250kbps, RH_NRF24::TransmitPower0dBm))
@@ -190,14 +190,7 @@ void loop() {
 	case SYS_DISABLED:
 		checkAlive();
 		digitalWrite(HORN_ON, HIGH);
-		digitalWrite(ALARM_ON, HIGH);	
-		// Relay things between Serial and the module's SoftSerial.
-		while (A6GSM.A6conn->available() > 0) {
-			Serial.write(A6GSM.A6conn->read());
-		}
-		while (Serial.available() > 0) {
-			A6GSM.A6conn->write(Serial.read());
-		}
+		digitalWrite(ALARM_ON, HIGH);			
 		break;
 
 	// Run alarm system
@@ -434,7 +427,6 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
 
 }
 
-
 // Encodes JSON Object and Sends it to All WebSocket Clients
 void sendDataWs(char* msgType, char* msg) {
 	DynamicJsonBuffer jsonBuffer;
@@ -563,7 +555,6 @@ void processWsMsg(String msg) {
 	preferences.end();
 }
 
-
 // Check if provided hash is correct (used for PIN)
 bool hashThis(String Text, String testHash) {
 #define HASH_SIZE 32
@@ -584,7 +575,6 @@ bool hashThis(String Text, String testHash) {
 	else
 		return false;
 }
-
 
 // Try to load Wifi configuration from config.json
 bool loadWifiConf(void) {
@@ -621,6 +611,5 @@ bool loadWifiConf(void) {
 		subnetmask.fromString(strSubnetmask);
 		if (!WiFi.config(ip, gateway, subnetmask))
 			Serial.println("Warning: Failed to manual setup wifi connection. I'm going to use dhcp");
-	}
-	
+	}	
 }
