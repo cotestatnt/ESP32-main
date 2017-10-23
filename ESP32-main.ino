@@ -37,7 +37,6 @@ const byte HORN_ON = 12;		// Relay K2
 const byte REED_IN = 2;			// Reed sensor input (Pull-UP)
 const byte UsedPin[] = { REED_IN , HORN_ON, ALARM_ON, TEST };
 
-
 // Webservices
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
@@ -62,7 +61,7 @@ SHA256 sha256;
 RH_NRF24 nrf24(27, 5);
 RHReliableDatagram manager(nrf24, SERVER_ADDRESS);
 struct Node { uint16_t id; uint8_t state; uint8_t battery; long lastTS; };
-Node nodes[7]; // Master always 0 + n nodes
+Node nodes[10]; // Master always 0 + n nodes
 
 // Global variables
 bool service, calling = false;
@@ -101,9 +100,6 @@ void setup() {
 	// Start Serial for debug
 	Serial.begin(115200);
 	Serial.println();
-	// Start Serial for A6 GSM module
-	//A6GSM.begin(115200);
-
 
 	// Load admin credits. If not present (first time?) use default admin/admin
 	preferences.begin("SmartAlarm", false);
@@ -195,6 +191,13 @@ void loop() {
 		checkAlive();
 		digitalWrite(HORN_ON, HIGH);
 		digitalWrite(ALARM_ON, HIGH);	
+		// Relay things between Serial and the module's SoftSerial.
+		while (A6GSM.A6conn->available() > 0) {
+			Serial.write(A6GSM.A6conn->read());
+		}
+		while (Serial.available() > 0) {
+			A6GSM.A6conn->write(Serial.read());
+		}
 		break;
 
 	// Run alarm system
@@ -203,7 +206,7 @@ void loop() {
 		digitalWrite(HORN_ON, HIGH);
 		digitalWrite(ALARM_ON, HIGH);
 		for (byte i = 0; i<7; i++)
-			nodes[i].lastTS = millis();
+			nodes[i].lastTS = actual_time_sec;
 		systemStatus = RUNNING;		
 		break;
 
@@ -229,9 +232,9 @@ void loop() {
 	// Get the timestamped reply message from the specific node
 	case WAIT_NODE:
 		// Timeoout -> something get wrong
-		if (millis() - waitTime > 700) {
+		if (millis() - waitTime > 500) {
 			waitTime = millis();
-			systemStatus = CHECK_NODES;
+			systemStatus = SYS_ENABLED;
 		}
 		if (RxData.substring(0, 1) == "9") {
 			uint16_t actualId = RxData.substring(1, 2).toInt();
