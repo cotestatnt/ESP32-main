@@ -6,8 +6,18 @@ if (!!window.EventSource) {
     console.log("Server Events connected, start Websocket client.");
     startSocket();
   }, false);
- 
-  source.addEventListener('error', function(e) {
+  
+  
+// Check if websocket connection is ok
+function checkWs(){
+   if(ws.readyState === ws.CLOSED){
+    console.log("Trying to reconnect with server " + "ws://"+document.location.host);
+    startSocket();  
+  }
+};
+setInterval(checkWs,5000);
+
+source.addEventListener('error', function(e) {
     if (e.target.readyState != EventSource.OPEN) {
       console.log("Server Events Disconnected");
     }
@@ -37,7 +47,7 @@ function startSocket(){
   ws = new WebSocket('ws://'+document.location.host+'/ws');
   // Connection opened
   ws.addEventListener('open', function (e) {
-      ws.send('Hello Server!');
+      //ws.send("{\"Hello\":\"Server\"}");
       console.log("Connected with server " + "ws://"+document.location.host);
   });
 
