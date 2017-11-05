@@ -17,11 +17,11 @@
 #define ESP_PLATFORM
 #define HAVE_CONFIG_H
 #define F_CPU 240000000L
-#define ARDUINO 10801
+#define ARDUINO 10805
 #define ARDUINO_ESP32_DEV
 #define ARDUINO_ARCH_ESP32
 #define ESP32
-#define CORE_DEBUG_LEVEL 5
+#define CORE_DEBUG_LEVEL 2
 #define __cplusplus 201103L
 #undef __cplusplus
 #define __cplusplus 201103L

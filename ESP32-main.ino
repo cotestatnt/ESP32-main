@@ -11,6 +11,17 @@
 #include <SPIFFS.h>
 #include <SPIFFSEditor.h>
 
+#include "HardwareSerialGSM.h"
+#include <ESPTelegramBOT.h>
+
+// Inizializzo valori bot telegram
+#define BOTtoken "488075445:AAG5S_I2MHDOtMK8v4U8QhcogrKef1Yltd8"  //token of TestBOT
+#define BOTname "Allarme"
+#define BOTusername "AllarmeCotesta_bot"
+
+TelegramBOT bot(BOTtoken, BOTname, BOTusername);
+long Bot_lasttime;
+
 //Some useful bit manipulation macros
 #define BIT_MASK(bit)             (1 << (bit))
 #define SET_BIT(value,bit)        ((value) |= BIT_MASK(bit))
@@ -108,11 +119,6 @@ void handleInterrupt() {
   }
 }
 
-// Use UART1 for serial communication with A6 GSM module
-HardwareSerial Serial1(1);
-#define SERIAL1_RXPIN 33 
-#define SERIAL1_TXPIN 4
-
 // ***************************************************************************************************** //
 // *****************************************    SETUP   ************************************************ //
 // ***************************************************************************************************** //
@@ -128,7 +134,8 @@ void setup() {
   // Start Serial for debug
   Serial.begin(115200);  
   Serial.println();  
-  Serial1.begin(115200, SERIAL_8N1, SERIAL1_RXPIN, SERIAL1_TXPIN);
+  //Serial1.begin(115200, SERIAL_8N1, 33, 4);
+  A6begin();
   
   // Load admin credits. If not present (first time?) use default admin/admin
   preferences.begin("SmartAlarm", false);
@@ -185,12 +192,30 @@ void setup() {
 // *****************************************    LOOP   ************************************************* //
 // ***************************************************************************************************** //
 
-void loop() {  
+bool RisingEdge = false;
+long waitDial = millis();
+
+void loop() {
   checkWiFiConnection();
 
   // Check the nRF24 network regularly
   network.update();
   getRadioData();
+
+  // Check telegram message is present
+  checkBotMessages();
+  // Check if new unread SMS is present
+  checkSMS(false);
+  // Send AT command from terminal ()
+  String inputString = "";
+  while (Serial.available() > 0) {
+	  char inChar = (char)Serial.read();	  
+	  inputString += inChar;
+	  if (inChar == '\n') {
+		  A6command(inputString.c_str(), "OK", "yy", A6_CMD_TIMEOUT, 1, NULL, true);
+	  }
+  }
+
 
   /*
   if(systemStatus != oldStatus){
@@ -200,13 +225,16 @@ void loop() {
   }
   */
 
-  while (Serial1.available() > 0) {
-    Serial.write(Serial1.read());
-  }
-  while (Serial.available() > 0) {
-    Serial1.write(Serial.read());
-  }
   
+  if ((digitalRead(TEST) == HIGH) && (!RisingEdge)) {
+    RisingEdge = true;	
+    dial("3934191877");
+    waitDial = millis();    
+  }
+  if (millis() - waitDial > 2000) {
+    RisingEdge = false;
+    hangUp();	
+  } 
 
   switch (systemStatus) {
   // Dummy replay (in order to put nodes in deep sleep);
@@ -353,8 +381,7 @@ void getRadioData(void) {
     RF24NetworkHeader header;
     network.read(header, &cipherText, sizeof(cipherText));
     myCipher.decryptBlock(payload, cipherText);   
-    unsigned long TimeStamp = (payload[_TimeStampH] << 16) | (payload[_TimeStampH + 1] << 8) | payload[_TimeStampH + 2];
-    
+        
     Serial.print(F("Node "));
     Serial.print(header.from_node);
     Serial.print(F(": "));
@@ -737,4 +764,77 @@ void printDec(byte *buffer, byte bufferSize) {
     Serial.print(buffer[i] < 0x10 ? " 0" : " ");
     Serial.print(buffer[i], DEC);
   }
+}
+
+
+
+// ***************************************************************************************************** //
+// *********************************  TELEGRAM MESSAGES  *********************************************** //
+// ***************************************************************************************************** //
+
+void checkBotMessages() {
+	String message = "";
+	if (millis() - Bot_lasttime > 10000) {
+		int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+		while (numNewMessages) {
+			Serial.print("Bot: ");
+			for (int i = 0; i<numNewMessages; i++) {
+				message = bot.messages[i].text;
+				Serial.println(message);
+				// parse received message
+				if (message != ""){
+					if (message == "Antifurto ON") {
+						systemStatus = SYS_ENABLED;
+						bot.sendMessage(bot.messages[i].chat_id, "Imposto Antifurto ON", "");
+					}
+
+					else if (message == "Antifurto OFF") {
+						systemStatus = SYS_DISABLED;
+						bot.sendMessage(bot.messages[i].chat_id, "Imposto Antifurto OFF", "");
+					}
+
+					else if (message == "/start") {
+						bot.sendMessage(message, "Ciao Tolentino, cosa posso fare?", "");
+					}          
+					else 
+						bot.sendMessage(bot.messages[i].chat_id, "Hai scritto: " + message, "");
+					
+				}
+				
+			}
+			numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+		}
+		Bot_lasttime = millis();
+	}
+
+	
+  
+}
+
+// ***************************************************************************************************** //
+// *************************************  SMS MESSAGES  ************************************************ //
+// ***************************************************************************************************** //
+
+void checkSMS(bool deleteAfterRead) {
+	int unreadSMSLocs[30] = { 0 };
+	int unreadSMSNum = 0;
+	SMSmessage sms;
+	static long smsLastTime = millis();
+	if (millis() - smsLastTime > 5000) {
+		smsLastTime = millis();
+		// Get the memory locations of unread SMS messages.
+		unreadSMSNum = getUnreadSMSLocs(unreadSMSLocs, 30);
+		for (int i = 0; i < unreadSMSNum; i++) {
+			Serial.print("New message at index: ");
+			Serial.println(unreadSMSLocs[i], DEC);
+
+			sms = readSMS(unreadSMSLocs[i]);
+			Serial.println(sms.number);
+			Serial.println(sms.date);
+			Serial.println(sms.message);
+
+			if(deleteAfterRead)
+				deleteSMS(i);
+		}
+	}
 }
