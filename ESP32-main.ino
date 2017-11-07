@@ -10,9 +10,18 @@
 #include <Preferences.h>
 #include <SPIFFS.h>
 #include <SPIFFSEditor.h>
+#include <ESPmDNS.h>
+#include <ArduinoOTA.h>
 
-#include "HardwareSerialGSM.h"
 #include <ESPTelegramBOT.h>
+#include <A6ESP32.h>
+
+#define SERIAL1_RXPIN 33 
+#define SERIAL1_TXPIN 4
+#define UART_NUN      1
+
+// Instantiate the A6 GSM library
+A6ESP32 A6_GSM(UART_NUN);
 
 // Inizializzo valori bot telegram
 #define BOTtoken "488075445:AAG5S_I2MHDOtMK8v4U8QhcogrKef1Yltd8"  //token of TestBOT
@@ -32,9 +41,9 @@ long Bot_lasttime;
 #define NTP_OFFSET 2 * 60 * 60        // In seconds
 #define NTP_ADDRESS "time.google.com" // NTP Server to connect
 #define N_BLOCK 17
-const char *ssid = "";
-const char *password = "";
-const char *hostName = "esp-async";
+const char* ssid = "";
+const char* password = "";
+const char* hostName = "esp-async";
 String adminPswd = "admin";
 String adminPIN = "12345";
 
@@ -133,9 +142,9 @@ void setup() {
 
   // Start Serial for debug
   Serial.begin(115200);  
-  Serial.println();  
-  //Serial1.begin(115200, SERIAL_8N1, 33, 4);
-  A6begin();
+  Serial.println("Booting...");
+  Serial.println();    
+  A6_GSM.begin(115200, SERIAL1_RXPIN, SERIAL1_TXPIN);
   
   // Load admin credits. If not present (first time?) use default admin/admin
   preferences.begin("SmartAlarm", false);
@@ -155,19 +164,8 @@ void setup() {
   // Start SPIFFS filesystem
   SPIFFS.begin(true);
 
-  // Start wifi connection
-  if (!loadWifiConf()) {
-    Serial.print(F("Warning: Failed to load Wifi configuration.\nConnect to "));
-    Serial.print(hostName);
-    Serial.println(F(" , load 192.168.4.1/auth and update with your SSID and password."));
-    WiFi.mode(WIFI_AP);
-    WiFi.softAP(hostName);
-  }
-
-  // Normal wifi connection check doesn't work togheter with RF24 lib
-  // We check connection status with checkWiFi() in main loop
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
+  // Load configuration and start wifi
+  loadWifiConf();
 
   // Configure and start Webserver
   ws.onEvent(onWsEvent);
@@ -186,6 +184,34 @@ void setup() {
   });
   server.onNotFound([](AsyncWebServerRequest *request) { request->send(404); });
   server.begin();
+
+  ArduinoOTA
+	  .onStart([]() {
+	  String type;
+	  if (ArduinoOTA.getCommand() == U_FLASH)
+		  type = "sketch";
+	  else // U_SPIFFS
+		  type = "filesystem";
+	  // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+	  Serial.println("Start updating " + type);  
+  })
+	  .onEnd([]() {	  
+	      Serial.println("\nEnd");  
+  })
+	  .onProgress([](unsigned int progress, unsigned int total) { 
+		  Serial.printf("Progress: %u%%\r", (progress / (total / 100))); 
+  })
+	  .onError([](ota_error_t error) {
+		  Serial.printf("Error[%u]: ", error);
+		  if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+		  else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+		  else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+		  else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+		  else if (error == OTA_END_ERROR) Serial.println("End Failed");	
+  });
+
+  ArduinoOTA.begin();
+
 }
 
 // ***************************************************************************************************** //
@@ -196,7 +222,7 @@ bool RisingEdge = false;
 long waitDial = millis();
 
 void loop() {
-  checkWiFiConnection();
+  ArduinoOTA.handle();
 
   // Check the nRF24 network regularly
   network.update();
@@ -204,15 +230,17 @@ void loop() {
 
   // Check telegram message is present
   checkBotMessages();
+
   // Check if new unread SMS is present
   checkSMS(false);
+
   // Send AT command from terminal ()
   String inputString = "";
   while (Serial.available() > 0) {
 	  char inChar = (char)Serial.read();	  
 	  inputString += inChar;
 	  if (inChar == '\n') {
-		  A6command(inputString.c_str(), "OK", "yy", A6_CMD_TIMEOUT, 1, NULL, true);
+		  A6_GSM.sendATString(inputString.c_str());
 	  }
   }
 
@@ -225,15 +253,15 @@ void loop() {
   }
   */
 
-  
+
   if ((digitalRead(TEST) == HIGH) && (!RisingEdge)) {
     RisingEdge = true;	
-    dial("3934191877");
+	A6_GSM.dial("3934191877");
     waitDial = millis();    
   }
-  if (millis() - waitDial > 2000) {
+  if ((millis() - waitDial > 5000) && (RisingEdge)) {
     RisingEdge = false;
-    hangUp();	
+	A6_GSM.hangUp();
   } 
 
   switch (systemStatus) {
@@ -368,6 +396,26 @@ void loop() {
     sendDataWs((char *)"status", str);
   }
 }
+
+
+
+// Helper routine to dump a byte array as hex values to Serial.
+void printHex(byte *buffer, byte bufferSize) {
+  for (byte i = 0; i < bufferSize; i++) {
+    Serial.print(buffer[i] < 0x10 ? " 0" : " ");
+    Serial.print(buffer[i], HEX);
+  }
+}
+
+
+// Helper routine to dump a byte array as dec values to Serial.
+void printDec(byte *buffer, byte bufferSize) {
+  for (byte i = 0; i < bufferSize; i++) {
+    Serial.print(buffer[i] < 0x10 ? " 0" : " ");
+    Serial.print(buffer[i], DEC);
+  }
+}
+
 
 // ***************************************************************************************************** //
 // *****************************************    RF24    ************************************************ //
@@ -620,19 +668,39 @@ bool hashThis(String Text, String testHash) {
     return false;
 }
 
+
+// ***************************************************************************************************** //
+//************************************  WIFI CONNECTION  *********************************************** //
+// ***************************************************************************************************** //
+
+
+void switchtoAP(void) {
+  Serial.print(F("Warning: Failed to load Wifi configuration.\nConnect to "));
+  Serial.print(hostName);
+  Serial.println(F(" , load 192.168.4.1/auth and update with your SSID and password."));
+  WiFi.disconnect(false);
+  WiFi.mode(WIFI_AP);
+  delay(1000);
+  WiFi.softAP(hostName);
+}
+
 // Try to load Wifi configuration from config.json
 bool loadWifiConf(void) {
   File configFile = SPIFFS.open("/auth/config.json", "r");
-  if (!configFile)
-    return false;
+  if (!configFile) {
+	  switchtoAP();
+	  return false;
+  }    
   size_t size = configFile.size();
   // Allocate a buffer to store contents of the file.
   std::unique_ptr<char[]> buf(new char[size]);
   configFile.readBytes(buf.get(), size);
   DynamicJsonBuffer jsonBuffer;
   JsonObject &json = jsonBuffer.parseObject(buf.get());
-  if (!json.success())
-    return false;
+  if (!json.success()) {
+	  switchtoAP();
+	  return false;
+  }
 
   // Parse json config file
   nodeNumber = json["nodeNumber"];
@@ -656,44 +724,28 @@ bool loadWifiConf(void) {
     if (!WiFi.config(ip, gateway, subnetmask))
       Serial.println("Warning: Failed to manual setup wifi connection. I'm going to use dhcp");
   }
-  return true;
-}
-
-void checkWiFiConnection() {
-  static volatile bool wifi_connected = false;
-  static uint32_t wifi_timeout = millis();
-  // If wifi connected print local IP and start NTP client
-  if (WiFi.status() == WL_CONNECTED) {
-    if (!wifi_connected) {
-      Serial.print("\nWiFi connected. IP address: ");
-      Serial.println(WiFi.localIP());
-      ntpClient.begin(2390);
-      delay(100);
-      ntpUpdateTime();
-      // Set all node to known state
-      for (byte i = 0; i < 7; i++) {
-        nodes[i].id = 0;
-        nodes[i].state = 0;
-        nodes[i].lastTS = epochDay;
-      }
-    }
-    wifi_connected = true;
-    ntpUpdateTime();
+  
+  // Try to connect to WiFi
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
+	  switchtoAP();
+	  return false;
   } 
-  else {
-    wifi_connected = false;
-    if (millis() - wifi_timeout > 10000) {
-      Serial.println("STA: Failed!");
-      WiFi.disconnect(false);
-      WiFi.mode(WIFI_AP);
-      WiFi.softAP("ESP32_AP");
-      delay(1000);
-      WiFi.begin(ssid, password);
-      wifi_connected = true;
-      Serial.print("\nWiFi Access Point. IP address: ");
-      Serial.println(WiFi.localIP());
-    }
+ 
+  Serial.print("\nWiFi connected. IP address: ");
+  Serial.println(WiFi.localIP());
+  ntpClient.begin(2390);
+  delay(100);
+  ntpUpdateTime();
+  // Set all node to known state
+  for (byte i = 0; i < 7; i++) {
+    nodes[i].id = 0;
+    nodes[i].state = 0;
+    nodes[i].lastTS = epochDay;
   }
+  ntpUpdateTime();
+  return true;
 }
 
 void ntpUpdateTime(void) {
@@ -749,25 +801,6 @@ void ntpUpdateTime(void) {
 }
 
 
-// Helper routine to dump a byte array as hex values to Serial.
-void printHex(byte *buffer, byte bufferSize) {
-  for (byte i = 0; i < bufferSize; i++) {
-    Serial.print(buffer[i] < 0x10 ? " 0" : " ");
-    Serial.print(buffer[i], HEX);
-  }
-}
-
-
-// Helper routine to dump a byte array as dec values to Serial.
-void printDec(byte *buffer, byte bufferSize) {
-  for (byte i = 0; i < bufferSize; i++) {
-    Serial.print(buffer[i] < 0x10 ? " 0" : " ");
-    Serial.print(buffer[i], DEC);
-  }
-}
-
-
-
 // ***************************************************************************************************** //
 // *********************************  TELEGRAM MESSAGES  *********************************************** //
 // ***************************************************************************************************** //
@@ -805,36 +838,34 @@ void checkBotMessages() {
 			numNewMessages = bot.getUpdates(bot.last_message_received + 1);
 		}
 		Bot_lasttime = millis();
-	}
-
-	
-  
+	}  
 }
 
 // ***************************************************************************************************** //
 // *************************************  SMS MESSAGES  ************************************************ //
 // ***************************************************************************************************** //
 
+long smsLastTime = millis();
+
 void checkSMS(bool deleteAfterRead) {
 	int unreadSMSLocs[30] = { 0 };
 	int unreadSMSNum = 0;
 	SMSmessage sms;
-	static long smsLastTime = millis();
 	if (millis() - smsLastTime > 5000) {
 		smsLastTime = millis();
 		// Get the memory locations of unread SMS messages.
-		unreadSMSNum = getUnreadSMSLocs(unreadSMSLocs, 30);
+		unreadSMSNum = A6_GSM.getSMSLocs(unreadSMSLocs, 5);
 		for (int i = 0; i < unreadSMSNum; i++) {
 			Serial.print("New message at index: ");
 			Serial.println(unreadSMSLocs[i], DEC);
 
-			sms = readSMS(unreadSMSLocs[i]);
+			sms = A6_GSM.readSMS(unreadSMSLocs[i]);
 			Serial.println(sms.number);
 			Serial.println(sms.date);
 			Serial.println(sms.message);
 
 			if(deleteAfterRead)
-				deleteSMS(i);
+				A6_GSM.deleteSMS(i);
 		}
 	}
 }
